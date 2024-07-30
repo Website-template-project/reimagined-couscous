@@ -9,23 +9,27 @@ https://docs.djangoproject.com/en/4.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
-
+import os
 from pathlib import Path
-
+from dotenv import load_dotenv
+import certifi
+from google.oauth2 import service_account
+import base64
+import json
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+load_dotenv() 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-k_3+p-lq-m+8z)0urs+bz(a+uc77*l5tc!o@+)i$hg_$*d=yul"
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG =  False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*'] #Remember to change
 
 
 # Application definition
@@ -37,6 +41,12 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework",
+    "rest_framework.authtoken",
+    "corsheaders",    
+    "api",
+    "djongo",
+    'storages'
 ]
 
 MIDDLEWARE = [
@@ -47,6 +57,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",    
 ]
 
 ROOT_URLCONF = "setup.urls"
@@ -70,16 +82,43 @@ TEMPLATES = [
 WSGI_APPLICATION = "setup.wsgi.application"
 
 
+#Security for framework
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.TokenAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES':(
+        #'rest_framework.permissions.IsAuthenticated',), 
+        'rest_framework.permissions.AllowAny',),
+}
+
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
+#DATABASES = {
+#    "default": {
+#        "ENGINE": "django.db.backends.sqlite3",
+#        "NAME": BASE_DIR / "db.sqlite3",
+#    }
+#}
+
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+    'default': {
+        'ENGINE': 'djongo',
+        'NAME':  os.getenv('NAME'), # name
+        'ENFORCE_SCHEMA': False,  # Set to True if you want to enforce schema
+        'CLIENT': {
+            'host': os.getenv('HOST'),#
+            'username': os.getenv('USERNAME'),  # 
+            'password': os.getenv('PASSWORD'),  # 
+            'authSource': 'admin',  # default
+            'authMechanism': 'SCRAM-SHA-1',  # default could to 256 for azure
+            'ssl': True,
+            'tlsCAFile': certifi.where(),
+        }
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators
@@ -115,9 +154,52 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
-STATIC_URL = "static/"
+GS_BUCKET_NAME = os.getenv("GS_BUCKET_NAME")
+GS_PROJECT_ID = os.getenv("GS_PROJECT_ID")
+DEFAULT_FILE_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
+STATICFILES_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
+
+# Decode the base64 string to get the JSON content
+service_account_json_base64 = os.getenv('GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON_BASE64')
+service_account_json = base64.b64decode(service_account_json_base64).decode('utf-8')
+# Load the JSON content into a dictionary
+service_account_info = json.loads(service_account_json)
+# Create credentials using the service account file
+GS_CREDENTIALS = service_account.Credentials.from_service_account_info(service_account_info)
+# URL to use when referring to static files located in GCS
+STATIC_URL = f'https://storage.googleapis.com/{GS_BUCKET_NAME}/'
+# URL to use when referring to static files located in GCS
+STATIC_URL = f'https://storage.googleapis.com/{GS_BUCKET_NAME}/static/'
+MEDIA_URL = f'https://storage.googleapis.com/{GS_BUCKET_NAME}/media/'
+
+#STATIC_URL = "static/"
+#STATICFILE_DIRS = [
+#    os.path.join(BASE_DIR,"static"),
+#] 
+#STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')# 
+#MEDIA_URL = "media/"
+#MEDIA_ROOT = os.path.join(BASE_DIR,'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+#Cors authorization
+
+CORS_ALLOW_ALL_ORIGINS = True #This is a security risk
+CORS_ALLOW_HEADERS = [
+    'Accept-Language',  # Add accept-language to the list of allowed headers
+    'Authorization',
+    'Content-Type',
+    'User-Agent',
+    # Add any other headers you want to allow here
+]
+
+# Security settings
+#SECURE_SSL_REDIRECT = True
+#SESSION_COOKIE_SECURE = True
+#CSRF_COOKIE_SECURE = True
+#SECURE_HSTS_SECONDS = 3600
+#SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+#SECURE_HSTS_PRELOAD = True

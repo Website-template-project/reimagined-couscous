@@ -106,12 +106,12 @@ REST_FRAMEWORK = {
 DATABASES = {
     'default': {
         'ENGINE': 'djongo',
-        'NAME':  os.getenv('NAME'), # name
+        'NAME':  os.getenv('MONGODB_NAME'), # name
         'ENFORCE_SCHEMA': False,  # Set to True if you want to enforce schema
         'CLIENT': {
-            'host': os.getenv('HOST'),#
-            'username': os.getenv('USERNAME'),  # 
-            'password': os.getenv('PASSWORD'),  # 
+            'host': os.getenv('MONGODB_HOST'),#
+            'username': os.getenv('MONGODB_USERNAME'),  # dont use username for windows conflict
+            'password': os.getenv('MONGODB_PASSWORD'),  # 
             'authSource': 'admin',  # default
             'authMechanism': 'SCRAM-SHA-1',  # default could to 256 for azure
             'ssl': True,

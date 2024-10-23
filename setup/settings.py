@@ -45,8 +45,8 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "corsheaders",    
     "api",
-    "djongo",
-    'storages'
+    'storages',
+    #"djongo",
 ]
 
 MIDDLEWARE = [
@@ -58,7 +58,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "corsheaders.middleware.CorsMiddleware",
-    "django.middleware.common.CommonMiddleware",    
+    #"django.middleware.common.CommonMiddleware",    
 ]
 
 ROOT_URLCONF = "setup.urls"
@@ -103,20 +103,37 @@ REST_FRAMEWORK = {
 #    }
 #}
 
+#DATABASES = {
+#    'default': {
+#        'ENGINE': 'djongo',
+#        'NAME':  os.getenv('MONGODB_NAME'), # name
+#        'ENFORCE_SCHEMA': False,  # Set to True if you want to enforce schema
+#        'CLIENT': {
+#            'host': os.getenv('MONGODB_HOST'),#
+#            'username': os.getenv('MONGODB_USERNAME'),  # dont use username for windows conflict
+#            'password': os.getenv('MONGODB_PASSWORD'),  # 
+#            'authSource': 'admin',  # default
+#            'authMechanism': 'SCRAM-SHA-1',  # default could to 256 for azure
+#            'ssl': True,
+#            'tlsCAFile': certifi.where(),
+#        }
+#    }
+#}
+
 DATABASES = {
     'default': {
-        'ENGINE': 'djongo',
-        'NAME':  os.getenv('MONGODB_NAME'), # name
-        'ENFORCE_SCHEMA': False,  # Set to True if you want to enforce schema
-        'CLIENT': {
-            'host': os.getenv('MONGODB_HOST'),#
-            'username': os.getenv('MONGODB_USERNAME'),  # dont use username for windows conflict
-            'password': os.getenv('MONGODB_PASSWORD'),  # 
-            'authSource': 'admin',  # default
-            'authMechanism': 'SCRAM-SHA-1',  # default could to 256 for azure
-            'ssl': True,
-            'tlsCAFile': certifi.where(),
-        }
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv("DB_NAME"),
+        'USER': os.getenv("DB_USER"),
+        'PASSWORD': os.getenv("DB_PASSWORD"),
+        'HOST': os.getenv("DB_HOST"),
+        'PORT': os.getenv("DB_PORT"),
+        'OPTIONS': {
+            'sslmode': 'require', # Enforce SSL
+            'sslcert': os.path.join(BASE_DIR,'certs','client-cert.pem'),# Path to your client certificate
+            'sslkey': os.path.join(BASE_DIR,'certs','client-key.pem'),# Path to your client key
+            'sslrootcert': os.path.join(BASE_DIR,'certs','server-ca.pem'),# Path to the root CA certificate
+        },
     }
 }
 
@@ -150,6 +167,9 @@ USE_I18N = True
 
 USE_TZ = True
 
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_CACHE_ALIAS = 'default'  # Use the same cache alias as configured for Redis cache
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
@@ -172,6 +192,7 @@ STATIC_URL = f'https://storage.googleapis.com/{GS_BUCKET_NAME}/'
 STATIC_URL = f'https://storage.googleapis.com/{GS_BUCKET_NAME}/static/'
 MEDIA_URL = f'https://storage.googleapis.com/{GS_BUCKET_NAME}/media/'
 
+
 #STATIC_URL = "static/"
 #STATICFILE_DIRS = [
 #    os.path.join(BASE_DIR,"static"),
@@ -184,6 +205,16 @@ MEDIA_URL = f'https://storage.googleapis.com/{GS_BUCKET_NAME}/media/'
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://10.111.2.35:6379/1',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'KEY_PREFIX': 'myapp',
+    }
+}
 
 #Cors authorization
 

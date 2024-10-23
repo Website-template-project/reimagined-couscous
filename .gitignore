@@ -172,3 +172,4 @@ cython_debug/
 # Ignore folder
 .DS_Store
 pyvenv.cfg
+cert/

@@ -45,7 +45,6 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "corsheaders",    
     "api",
-    "djongo",
     'storages'
 ]
 
@@ -103,22 +102,54 @@ REST_FRAMEWORK = {
 #    }
 #}
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'djongo',
+#         'NAME':  os.getenv('MONGODB_NAME'), # name
+#         'ENFORCE_SCHEMA': False,  # Set to True if you want to enforce schema
+#         'CLIENT': {
+#             'host': os.getenv('MONGODB_HOST'),#
+#             'username': os.getenv('MONGODB_USERNAME'),  # dont use username for windows conflict
+#             'password': os.getenv('MONGODB_PASSWORD'),  # 
+#             'authSource': 'admin',  # default
+#             'authMechanism': 'SCRAM-SHA-1',  # default could to 256 for azure
+#             'ssl': True,
+#             'tlsCAFile': certifi.where(),
+#         }
+#     }
+# }
+
 DATABASES = {
     'default': {
-        'ENGINE': 'djongo',
-        'NAME':  os.getenv('MONGODB_NAME'), # name
-        'ENFORCE_SCHEMA': False,  # Set to True if you want to enforce schema
-        'CLIENT': {
-            'host': os.getenv('MONGODB_HOST'),#
-            'username': os.getenv('MONGODB_USERNAME'),  # dont use username for windows conflict
-            'password': os.getenv('MONGODB_PASSWORD'),  # 
-            'authSource': 'admin',  # default
-            'authMechanism': 'SCRAM-SHA-1',  # default could to 256 for azure
-            'ssl': True,
-            'tlsCAFile': certifi.where(),
-        }
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT', '5432'),
+        'OPTIONS': {
+            'sslmode': 'require',
+            'sslcert': os.path.join(BASE_DIR, 'certs', 'client-cert.pem'),
+            'sslkey': os.path.join(BASE_DIR, 'certs', 'client-key.pem'),
+            'sslrootcert': os.path.join(BASE_DIR, 'certs', 'server-ca.pem'),
+        },
     }
 }
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': "redis://{os.getenv('REDIS_IP')}:6379/1",
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'KEY_PREFIX': 'myapp',
+    }
+}
+
+# Optional: if you want to use caching for session data
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
 
 # Password validation
 # https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators

@@ -172,6 +172,7 @@ certs/
 #.idea/
 .idea/
 .vscode/
+pyvenv.cfg
 
 # Spyder project settings
 .spyderproject

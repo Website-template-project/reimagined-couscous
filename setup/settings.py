@@ -12,7 +12,7 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-import certifi
+#import certifi
 from google.oauth2 import service_account
 import base64
 import json
@@ -27,7 +27,7 @@ load_dotenv()
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG =  False
+DEBUG = str(os.getenv('DEBUG', 'True')).lower() == 'true'
 
 ALLOWED_HOSTS = ['*'] #Remember to change
 
@@ -45,7 +45,10 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "corsheaders",    
     "api",
-    'storages'
+    "storages",
+    "channels",
+    "django_celery_results",
+    "django_celery_beat",
 ]
 
 MIDDLEWARE = [
@@ -56,8 +59,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
-    "django.middleware.common.CommonMiddleware",    
+    "corsheaders.middleware.CorsMiddleware",  
 ]
 
 ROOT_URLCONF = "setup.urls"
@@ -78,8 +80,8 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "setup.wsgi.application"
-
+ASGI_APPLICATION = "setup.asgi.application"  # Assuming your project is named 'setup'
+#WSGI_APPLICATION = "setup.wsgi.application"
 
 #Security for framework
 
@@ -91,6 +93,18 @@ REST_FRAMEWORK = {
         #'rest_framework.permissions.IsAuthenticated',), 
         'rest_framework.permissions.AllowAny',),
 }
+
+
+# Internationalization
+# https://docs.djangoproject.com/en/4.1/topics/i18n/
+
+LANGUAGE_CODE = "en-us"
+
+TIME_ZONE = "UTC"
+
+USE_I18N = True
+
+USE_TZ = True
 
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
@@ -119,34 +133,126 @@ REST_FRAMEWORK = {
 #     }
 # }
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT', '5432'),
-        'OPTIONS': {
-            'sslmode': 'require',
-            'sslcert': os.path.join(BASE_DIR, 'certs', 'client-cert.pem'),
-            'sslkey': os.path.join(BASE_DIR, 'certs', 'client-key.pem'),
-            'sslrootcert': os.path.join(BASE_DIR, 'certs', 'server-ca.pem'),
+if DEBUG:
+    # 1) PostgreSQL (lokal)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME":     os.getenv("LOCAL_DB_NAME",  "mydb"),
+            "USER":     os.getenv("LOCAL_DB_USER",  "postgres"),
+            "PASSWORD": os.getenv("LOCAL_DB_PASS",  "postgres"),
+            "HOST":     os.getenv("LOCAL_DB_HOST",  "127.0.0.1"),
+            "PORT":     os.getenv("LOCAL_DB_PORT",  "5432"),
+        }
+    }
+
+    # 2) Redis – Channel-Layer für WebSockets
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG":  {"hosts": ["redis://127.0.0.1:6379/0"],
+                        "prefix": "myapp"},   # optional
+        }
+    }
+
+    # 3) Redis – Django-Cache (Sessions, Caching API …)
+    CACHES = {
+        "default": {
+            "BACKEND":  "django_redis.cache.RedisCache",
+            "LOCATION": "redis://127.0.0.1:6379/1",
+            "OPTIONS":  {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+            "KEY_PREFIX": "myapp",
+        }
+    }
+
+    # 4) Statisches & Medien lokal halten
+    STATIC_URL   = "static/"
+    STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
+    STATIC_ROOT  = os.path.join(BASE_DIR, "staticfiles")
+    MEDIA_URL    = "media/"
+    MEDIA_ROOT   = os.path.join(BASE_DIR, "media")
+
+    # Celery Configuration (Development)
+    CELERY_BROKER_URL = "redis://127.0.0.1:6379/2" # Separate Redis DB for Celery
+    CELERY_RESULT_BACKEND = "django-db" # Using django-celery-results
+    CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+    CELERY_ACCEPT_CONTENT = ['json']
+    CELERY_TASK_SERIALIZER = 'json'
+    CELERY_RESULT_SERIALIZER = 'json'
+    CELERY_TIMEZONE = TIME_ZONE # Use Django's timezone
+    CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+    DEFAULT_FILE_STORAGE  = "django.core.files.storage.FileSystemStorage"
+    STATICFILES_STORAGE   = "django.contrib.staticfiles.storage.StaticFilesStorage"
+else:
+    # Production settings
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME'),
+            'USER': os.getenv('DB_USER'),
+            'PASSWORD': os.getenv('DB_PASSWORD'),
+            'HOST': os.getenv('DB_HOST'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+            'OPTIONS': {
+                'sslmode': 'require',
+                'sslcert': os.path.join(BASE_DIR, 'certs', 'client-cert.pem'),
+                'sslkey': os.path.join(BASE_DIR, 'certs', 'client-key.pem'),
+                'sslrootcert': os.path.join(BASE_DIR, 'certs', 'server-ca.pem'),
+            },
+        }
+    }
+
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [f"redis://{os.getenv('REDIS_IP')}:6379/0"],
+                "prefix": "myapp",  # optional
+            },
         },
     }
-}
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': "redis://{os.getenv('REDIS_IP')}:6379/1",
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        },
-        'KEY_PREFIX': 'myapp',
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': f"redis://{os.getenv('REDIS_IP')}:6379/1",
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            },
+            'KEY_PREFIX': 'myapp',
+        }
     }
-}
 
+    # Static files (CSS, JavaScript, Images)
+    # https://docs.djangoproject.com/en/4.1/howto/static-files/
+
+    GS_BUCKET_NAME = os.getenv("GS_BUCKET_NAME")
+    GS_PROJECT_ID = os.getenv("GS_PROJECT_ID")
+    DEFAULT_FILE_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
+    STATICFILES_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
+
+    # Decode the base64 string to get the JSON content
+    service_account_json_base64 = os.getenv('GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON_BASE64')
+    service_account_json = base64.b64decode(service_account_json_base64).decode('utf-8')
+    # Load the JSON content into a dictionary
+    service_account_info = json.loads(service_account_json)
+    # Create credentials using the service account file
+    GS_CREDENTIALS = service_account.Credentials.from_service_account_info(service_account_info)
+    # URL to use when referring to static files located in GCS
+    #STATIC_URL = f'https://storage.googleapis.com/{GS_BUCKET_NAME}/'
+    # URL to use when referring to static files located in GCS
+    STATIC_URL = f'https://storage.googleapis.com/{GS_BUCKET_NAME}/static/'
+    MEDIA_URL = f'https://storage.googleapis.com/{GS_BUCKET_NAME}/media/'
+
+    # Celery Configuration (Production)
+    CELERY_BROKER_URL = f"redis://{os.getenv('REDIS_IP')}:6379/2" # Separate Redis DB for Celery
+    CELERY_RESULT_BACKEND = "django-db" # Using django-celery-results
+    CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+    CELERY_ACCEPT_CONTENT = ['json']
+    CELERY_TASK_SERIALIZER = 'json'
+    CELERY_RESULT_SERIALIZER = 'json'
+    CELERY_TIMEZONE = TIME_ZONE # Use Django's timezone
+    CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 # Optional: if you want to use caching for session data
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
@@ -169,47 +275,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
-# Internationalization
-# https://docs.djangoproject.com/en/4.1/topics/i18n/
-
-LANGUAGE_CODE = "en-us"
-
-TIME_ZONE = "UTC"
-
-USE_I18N = True
-
-USE_TZ = True
-
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.1/howto/static-files/
-
-GS_BUCKET_NAME = os.getenv("GS_BUCKET_NAME")
-GS_PROJECT_ID = os.getenv("GS_PROJECT_ID")
-DEFAULT_FILE_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
-STATICFILES_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
-
-# Decode the base64 string to get the JSON content
-service_account_json_base64 = os.getenv('GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON_BASE64')
-service_account_json = base64.b64decode(service_account_json_base64).decode('utf-8')
-# Load the JSON content into a dictionary
-service_account_info = json.loads(service_account_json)
-# Create credentials using the service account file
-GS_CREDENTIALS = service_account.Credentials.from_service_account_info(service_account_info)
-# URL to use when referring to static files located in GCS
-STATIC_URL = f'https://storage.googleapis.com/{GS_BUCKET_NAME}/'
-# URL to use when referring to static files located in GCS
-STATIC_URL = f'https://storage.googleapis.com/{GS_BUCKET_NAME}/static/'
-MEDIA_URL = f'https://storage.googleapis.com/{GS_BUCKET_NAME}/media/'
-
-#STATIC_URL = "static/"
-#STATICFILE_DIRS = [
-#    os.path.join(BASE_DIR,"static"),
-#] 
-#STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')# 
-#MEDIA_URL = "media/"
-#MEDIA_ROOT = os.path.join(BASE_DIR,'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field

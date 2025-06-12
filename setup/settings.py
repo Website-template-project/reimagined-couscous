@@ -183,6 +183,10 @@ if DEBUG:
     CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
     DEFAULT_FILE_STORAGE  = "django.core.files.storage.FileSystemStorage"
     STATICFILES_STORAGE   = "django.contrib.staticfiles.storage.StaticFilesStorage"
+
+    # Kafka Configuration (Development)
+    KAFKA_BOOTSTRAP_SERVERS = os.getenv('LOCAL_KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
+    # Add other Kafka client configurations for local development if needed (e.g., security_protocol).
 else:
     # Production settings
     DATABASES = {
@@ -253,6 +257,15 @@ else:
     CELERY_RESULT_SERIALIZER = 'json'
     CELERY_TIMEZONE = TIME_ZONE # Use Django's timezone
     CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
+    # Kafka Configuration (Production)
+    KAFKA_BOOTSTRAP_SERVERS = os.getenv('PROD_KAFKA_BOOTSTRAP_SERVERS') # e.g., 'broker1:9093,broker2:9093'
+    # Ensure PROD_KAFKA_BOOTSTRAP_SERVERS is set in your production environment.
+    # For production, you'll likely need to configure security settings:
+    # KAFKA_SECURITY_PROTOCOL = os.getenv('PROD_KAFKA_SECURITY_PROTOCOL', 'SASL_SSL')
+    # KAFKA_SASL_MECHANISM = os.getenv('PROD_KAFKA_SASL_MECHANISM', 'PLAIN')
+    # KAFKA_SASL_PLAIN_USERNAME = os.getenv('PROD_KAFKA_SASL_PLAIN_USERNAME')
+    # KAFKA_SASL_PLAIN_PASSWORD = os.getenv('PROD_KAFKA_SASL_PLAIN_PASSWORD')
 # Optional: if you want to use caching for session data
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"

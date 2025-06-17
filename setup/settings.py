@@ -266,6 +266,13 @@ else:
     # KAFKA_SASL_MECHANISM = os.getenv('PROD_KAFKA_SASL_MECHANISM', 'PLAIN')
     # KAFKA_SASL_PLAIN_USERNAME = os.getenv('PROD_KAFKA_SASL_PLAIN_USERNAME')
     # KAFKA_SASL_PLAIN_PASSWORD = os.getenv('PROD_KAFKA_SASL_PLAIN_PASSWORD')
+    # Security settings
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 3600
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 # Optional: if you want to use caching for session data
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
@@ -305,10 +312,4 @@ CORS_ALLOW_HEADERS = [
     # Add any other headers you want to allow here
 ]
 
-# Security settings
-#SECURE_SSL_REDIRECT = True
-#SESSION_COOKIE_SECURE = True
-#CSRF_COOKIE_SECURE = True
-#SECURE_HSTS_SECONDS = 3600
-#SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-#SECURE_HSTS_PRELOAD = True
+
